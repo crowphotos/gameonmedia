@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.johnnie.emailtowp</string>
+
+    <!-- Use the venv's Python so all installed packages are found. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/USERNAME/Developer/email-to-wp/venv/bin/python3</string>
+        <string>/Users/USERNAME/Developer/email-to-wp/email_to_wp_drafts.py</string>
+    </array>
+
+    <!-- Run from the script's own folder so credentials.json, token.json,
+         and processed_ids.json resolve correctly. -->
+    <key>WorkingDirectory</key>
+    <string>/Users/USERNAME/Developer/email-to-wp</string>
+
+    <!-- Twice a day: 7:00 AM and 7:00 PM. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key><integer>7</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>19</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+    </array>
+
+    <!-- If the Mac was asleep at the scheduled time, run when it wakes. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Logs for troubleshooting. -->
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Developer/email-to-wp/run.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Developer/email-to-wp/error.log</string>
+</dict>
+</plist>
