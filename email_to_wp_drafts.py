@@ -27,27 +27,39 @@ from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup, NavigableString
+from dotenv import load_dotenv
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# ======================= CONFIG — EDIT THIS =======================
+# Load secrets from a local .env file sitting next to this script.
+HERE = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(HERE, ".env"))
 
-# --- WordPress ---
-WP_SITE_URL  = "https://gameon.media"          # no trailing slash
-WP_USERNAME  = "gameonadmin"
-WP_APP_PASSWORD = "f7au uGyk c3MY CNO4 5xDe 8T5f"  # the Application Password (spaces are fine)
-DEFAULT_CATEGORY = "News"                        # created if it doesn't exist
 
-# --- Gmail ---
-# Same syntax as the Gmail search box. Examples:
-#   from:newsletters@example.com newer_than:30d
-#   label:Press subject:(tour OR concert)
-GMAIL_QUERY = "label:ArticlesGameOn newer_than:15d"
+def _require(name):
+    """Fetch a required env var or fail loudly with a helpful message."""
+    val = os.getenv(name)
+    if not val:
+        sys.exit(f"Missing required setting '{name}'. "
+                 f"Copy .env.example to .env and fill it in.")
+    return val
 
-# --- Artist watchlist for tagging ---
+
+# =================== CONFIG ===================
+# Secrets & per-install values come from .env (NOT committed to git).
+# Logic lists below stay in the script (safe to commit, version-controlled).
+
+# --- From .env ---
+WP_SITE_URL     = _require("WP_SITE_URL").rstrip("/")
+WP_USERNAME     = _require("WP_USERNAME")
+WP_APP_PASSWORD = _require("WP_APP_PASSWORD")
+GMAIL_QUERY     = _require("GMAIL_QUERY")
+DEFAULT_CATEGORY = os.getenv("DEFAULT_CATEGORY", "News")  # optional, defaults to News
+
+# --- Artist watchlist for tagging (logic — kept in repo) ---
 # Any of these names found in the email body becomes a post tag.
 # Matching is case-insensitive, whole-word. Add yours here.
 ARTIST_WATCHLIST = [
@@ -56,7 +68,7 @@ ARTIST_WATCHLIST = [
     "Chris Stapleton", "Lainey Wilson", "Cody Johnson",
 ]
 
-# --- Acronyms that always stay uppercase in titles. Add your own. ---
+# --- Acronyms that always stay uppercase in titles (logic — kept in repo) ---
 TITLE_ACRONYMS = {
     "NYC", "USA", "US", "UK", "LA", "SD", "DC", "VIP", "DJ", "MC",
     "EP", "LP", "CD", "TV", "PR", "AC/DC", "KSON", "SDSU", "NFL", "MLB",
@@ -67,11 +79,14 @@ USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
               "AppleWebKit/537.36 (KHTML, like Gecko) "
               "Chrome/124.0 Safari/537.36")
 
-# --- Files (kept next to the script) ---
-HERE        = os.path.dirname(os.path.abspath(__file__))
+# --- Files ---
 CREDS_FILE  = os.path.join(HERE, "credentials.json")   # Google OAuth client
 TOKEN_FILE  = os.path.join(HERE, "token.json")         # cached after first run
-SEEN_FILE   = os.path.join(HERE, "processed_ids.json") # dedupe: don't repost
+
+# Runtime state lives in logs/ to keep the project root clean.
+LOGS_DIR    = os.path.join(HERE, "logs")
+os.makedirs(LOGS_DIR, exist_ok=True)
+SEEN_FILE   = os.path.join(LOGS_DIR, "processed_ids.json")  # dedupe: don't repost
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 

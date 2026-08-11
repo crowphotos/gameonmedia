@@ -9,14 +9,14 @@
     <!-- Use the venv's Python so all installed packages are found. -->
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/USERNAME/Developer/email-to-wp/venv/bin/python3</string>
-        <string>/Users/USERNAME/Developer/email-to-wp/email_to_wp_drafts.py</string>
+        <string>/Users/johnnievranaai/Projects/gameonmedia/venv/bin/python3</string>
+        <string>/Users/johnnievranaai/Projects/gameonmedia/email_to_wp_drafts.py</string>
     </array>
 
-    <!-- Run from the script's own folder so credentials.json, token.json,
-         and processed_ids.json resolve correctly. -->
+    <!-- Run from the script's own folder so .env, credentials.json,
+         token.json, and processed_ids.json resolve correctly. -->
     <key>WorkingDirectory</key>
-    <string>/Users/USERNAME/Developer/email-to-wp</string>
+    <string>/Users/johnnievranaai/Projects/gameonmedia</string>
 
     <!-- Twice a day: 7:00 AM and 7:00 PM. -->
     <key>StartCalendarInterval</key>
@@ -31,14 +31,13 @@
         </dict>
     </array>
 
-    <!-- If the Mac was asleep at the scheduled time, run when it wakes. -->
     <key>RunAtLoad</key>
     <false/>
 
     <!-- Logs for troubleshooting. -->
     <key>StandardOutPath</key>
-    <string>/Users/USERNAME/Developer/email-to-wp/run.log</string>
+    <string>/Users/johnnievranaai/Projects/gameonmedia/logs/run.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/USERNAME/Developer/email-to-wp/error.log</string>
+    <string>/Users/johnnievranaai/Projects/gameonmedia/logs/error.log</string>
 </dict>
 </plist>
