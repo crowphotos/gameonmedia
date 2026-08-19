@@ -227,6 +227,70 @@ FOOTER_PATTERNS = [
 
 ABOUT_HEADING = re.compile(r"^\s*about\s+\S+", re.I)
 
+# --- PR / press-release boilerplate to delete entirely ---
+# Any element whose text matches one of these is removed. Add new phrases here
+# as you spot them from specific senders; keep them specific to avoid nuking
+# real article copy. `contact_block` also triggers removal of following
+# contact-detail lines (phone/email) in the same parent.
+BOILERPLATE_PATTERNS = [
+    re.compile(r"\bfor immediate release\b", re.I),
+    re.compile(r"\bembargoed?\b.*\buntil\b", re.I),
+    re.compile(r"\bunder embargo\b", re.I),
+    re.compile(r"\b(media|press)\s+contact\b", re.I),
+    re.compile(r"\bfor (more|further) (information|inquiries|details)\b", re.I),
+    re.compile(r"\bpress (inquiries|release)\b", re.I),
+    re.compile(r"^\s*#{2,}\s*$"),          # classic press-release end marker (### on its own)
+    re.compile(r"^\s*-30-\s*$"),            # traditional end-of-release mark
+]
+
+# Contact-detail lines often trailing a "MEDIA CONTACT" block.
+CONTACT_DETAIL = [
+    re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+", re.I),                # email address
+    # Phone: a line whose digits (ignoring spaces/punct) number 7–15 and which
+    # looks phone-shaped (optional +, parens, separators).
+    re.compile(r"^[\s+()\d.\-–]{7,}$"),                          # phone-shaped line
+]
+
+
+def _looks_like_phone(s):
+    digits = re.sub(r"\D", "", s)
+    return 7 <= len(digits) <= 15 and bool(re.match(r"^[\s+()\d.\-–]+$", s))
+
+
+# --- Secure media-asset / downloadable-file links to remove entirely ---
+# A link is removed (text and all) if its href OR its visible text matches.
+# Kept deliberately specific so artist/festival/social links are untouched.
+ASSET_HREF_PATTERNS = [
+    # Downloadable file extensions (optionally followed by ?query).
+    re.compile(r"\.(zip|pdf|tiff?|psd|wav|mp3|aiff?|mov|mp4|dng|raw|cr2|nef|"
+               r"eps|ai|indd|png|jpe?g|gif|webp)(\?|#|$)", re.I),
+    # Known asset/file-hosting services & sharing links.
+    re.compile(r"(dropbox\.com|wetransfer\.com|we\.tl|drive\.google\.com|"
+               r"box\.com|hightail\.com|smugmug\.com|dropboxusercontent\.com|"
+               r"sharefile\.com|filemail\.com|/download/|/downloads/)", re.I),
+    # Press-kit / EPK / hi-res asset paths.
+    re.compile(r"(press[\s._-]?kit|presskit|\bepk\b|hi[\s._-]?res|hires|"
+               r"/assets?/|/media[\s._-]?assets?/|/press[\s._-]?photos?/)", re.I),
+]
+
+ASSET_TEXT_PATTERNS = [
+    re.compile(r"\bdownload\b", re.I),
+    re.compile(r"\bhi[\s._-]?res\b", re.I),
+    re.compile(r"\bpress[\s._-]?kit\b", re.I),
+    re.compile(r"\b(photo|image|asset)s?\s+(here|available|for download)\b", re.I),
+    re.compile(r"\bepk\b", re.I),
+]
+
+
+def _is_asset_link(a):
+    href = a.get("href", "") or ""
+    text = a.get_text(" ", strip=True)
+    if any(p.search(href) for p in ASSET_HREF_PATTERNS):
+        return True
+    if text and any(p.search(text) for p in ASSET_TEXT_PATTERNS):
+        return True
+    return False
+
 
 def clean_html(raw_html):
     """Apply all the cleaning rules and return sanitized HTML."""
@@ -255,6 +319,51 @@ def clean_html(raw_html):
             continue
         if any(p.search(txt) for p in FOOTER_PATTERNS) and len(txt) < 400:
             el.decompose()
+
+    # Remove PR/press-release boilerplate. When a "contact"-type block is hit,
+    # also drop immediately-following siblings that are just contact details
+    # (email/phone), which is how those blocks are usually laid out.
+    BLOCK = {"p", "div", "td", "th", "li", "h1", "h2", "h3", "h4", "h5", "h6",
+             "span", "section", "article", "header", "footer"}
+    for el in list(soup.find_all(BLOCK)):
+        if el.decomposed if hasattr(el, "decomposed") else False:
+            continue
+        # Only act on leaf-ish blocks: no nested block children. Prevents a
+        # container (e.g. <body>/<div>) that merely wraps a match from being
+        # removed along with real article copy.
+        if el.find(BLOCK):
+            continue
+        txt = el.get_text(" ", strip=True)
+        if not txt or len(txt) > 400:
+            continue
+        matched = next((p for p in BOILERPLATE_PATTERNS if p.search(txt)), None)
+        if matched:
+            is_contact = re.search(r"(media|press)\s+contact|for (more|further)", txt, re.I)
+            to_remove = []
+            if is_contact:
+                # Gather trailing contact-detail / name lines BEFORE removing anything,
+                # so the sibling chain stays intact while we walk it.
+                sib = el.find_next_sibling()
+                while sib is not None and hasattr(sib, "get_text"):
+                    stxt = sib.get_text(" ", strip=True)
+                    if stxt and len(stxt) < 120 and (
+                        re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+", stxt)
+                        or _looks_like_phone(stxt)
+                        or re.match(r"^[A-Z][a-z]+(?:\s+[A-Z][a-z.]+){1,3}$", stxt)
+                    ):
+                        to_remove.append(sib)
+                        sib = sib.find_next_sibling()
+                    else:
+                        break
+            el.decompose()
+            for r in to_remove:
+                r.decompose()
+
+    # Remove secure media-asset / download links entirely (text and all).
+    # Artist/festival/social links don't match the asset signals, so they stay.
+    for a in soup.find_all("a", href=True):
+        if _is_asset_link(a):
+            a.decompose()
 
     for a in soup.find_all("a", href=True):
         a["target"] = "_blank"
